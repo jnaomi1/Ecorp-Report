@@ -1,0 +1,561 @@
+CREATE DATABASE ecorp_db;
+
+USE ecorp_db;
+
+/* Extract the 4 needed datasets (Customer Info, Energy Usage, Program Participation and Weather), validate the integrity, then transform and 
+clean the data */
+
+SELECT *
+FROM customerinfo; 
+
+SELECT *
+FROM energyusage; 
+
+SELECT *
+FROM programparticipation; 
+
+SELECT *
+FROM weather; 
+
+/* I- Validating the integrity */
+
+/*Number of records per table*/
+SELECT COUNT(*) FROM customerinfo;
+SELECT COUNT(*) FROM energyusage;
+SELECT COUNT(*) FROM programparticipation;
+SELECT COUNT(*) FROM weather;
+
+/* Check for any Duplicates in Customer information dataset */
+SELECT CustomerID, COUNT(*)
+FROM customerinfo
+GROUP BY CustomerID
+Having count(*) > 1;
+
+/* Check the date range for each time-based table to ensure that our timelines align with Starting Date and End Date */
+SELECT MIN(JoinDate), Max(JoinDate) From customerinfo; #--- For example if usage ends in 2022 but enrollments start in 2023 that's mean red flag
+SELECT MIN(UsageMonth), Max(UsageMonth) from energyusage;
+SELECT MIN(EnrollmentDate), Max(EnrollmentDate) FROM programparticipation;
+SELECT MIN(Date), Max(Date) FROM weather;
+
+/* Check any Null data in Customer Information and programParticipation */
+SELECT *
+FROM customerinfo
+WHERE CustomerID IS Null
+		or ZipCode is null
+        or IncomeLevel is Null
+        or JoinDate is Null;
+
+
+/* In order to form reltionships between data sets, must clean each data sets Date coloumn by changing its
+ datatype to date datatype .  */
+ 
+ 
+-- Customer Table ---
+
+SELECT *
+FROM customerinfo;
+
+ALTER TABLE customerinfo
+MODIFY COLUMN JoinDate date;
+
+
+DESCRIBE customerinfo;
+
+
+-- Energy Usage Table ---
+
+SELECT * -- to see energyusage dataset 
+FROM energyusage;
+
+ALTER TABLE energyusage
+MODIFY COLUMN UsageMonth date;
+
+DESCRIBE energyusage;
+
+
+-- Program Particpation Table ---
+
+SELECT *
+FROM programparticipation;
+
+ALTER TABLE programparticipation
+MODIFY COLUMN EnrollmentDate date;
+
+
+DESCRIBE programparticipation;
+  
+
+-- Weather Table ---
+
+SELECT *
+FROM weather;
+
+ALTER TABLE weather
+MODIFY COLUMN Date date;
+
+DESCRIBE weather;
+
+
+
+/* In order to form reltionships between data sets and conduct the proper analysis, must join the four datasets. Also, must create two new columns for
+ kWh Usage pre and post program for efficient and accurate data modeling.*/
+ 
+/* NOTE: MySQL does not support FULL OUTER JOIN. Therefore, create the ecorp view by union-ing two joined tables; an all left joined table and an all
+right joined table */
+
+-- Enrollment Date: Enrollment date of Energy effiecient program 
+-- Join Date: Customer starts the services    
+
+
+CREATE VIEW ecorp AS 
+SELECT 
+    c.CustomerID,
+    c.ZipCode,
+    c.IncomeLevel,
+    c.HousingType,
+    c.JoinDate,
+    p.ProgramName,
+    p.ProgramCost,
+    p.EnrollmentDate,
+    e.KwhUsed,
+    e.UsageMonth,
+    w.TemperatureF,
+
+    -- Energy usage BEFORE program enrollment
+    CASE 
+        WHEN e.UsageMonth < p.EnrollmentDate THEN e.KwhUsed
+        ELSE NULL
+    END AS kwh_pre_program,
+
+    -- Energy usage AFTER or ON enrollment date
+    CASE 
+        WHEN e.UsageMonth >= p.EnrollmentDate THEN e.KwhUsed
+        ELSE NULL
+    END AS kwh_post_program
+
+FROM programparticipation AS p
+LEFT JOIN customerinfo AS c ON p.CustomerID = c.CustomerID
+LEFT JOIN energyusage AS e ON c.CustomerID = e.CustomerID
+LEFT JOIN weather AS w ON e.UsageMonth = w.Date
+
+UNION
+
+SELECT 
+    c.CustomerID,
+    c.ZipCode,
+    c.IncomeLevel,
+    c.HousingType,
+    c.JoinDate,
+    p.ProgramName,
+    p.ProgramCost,
+    p.EnrollmentDate,
+    e.KwhUsed,
+    e.UsageMonth,
+    w.TemperatureF,
+
+    -- Energy usage BEFORE program enrollment
+    CASE 
+        WHEN e.UsageMonth < p.EnrollmentDate THEN e.KwhUsed
+        ELSE NULL
+    END AS kwh_pre_program,
+
+    -- Energy usage AFTER or ON enrollment date
+    CASE 
+        WHEN e.UsageMonth >= p.EnrollmentDate THEN e.KwhUsed
+        ELSE NULL
+    END AS kwh_post_program
+
+FROM programparticipation AS p
+RIGHT JOIN customerinfo AS c ON p.CustomerID = c.CustomerID
+RIGHT JOIN energyusage AS e ON c.CustomerID = e.CustomerID
+RIGHT JOIN weather AS w ON e.UsageMonth = w.Date;
+
+
+/* Business Requirement- Creating a comprehensive analysis of E.Corps energy efficient program’s participation,
+ energy usage, program performance and cost effective indicators. This will identify opportunities and key
+ insights for optimization using KPIs and visualizations.  */
+ 
+ /* Finding KPI Requirments */
+
+/* 1. Total Energy Usage, Total Pre and Post-Program Energy Usage: The overall energy (kWh) usage from a subset of customers unenrolled, enrolled, 
+before and after enrolling in the Energy Efficiency Program (e.g., Per Customer, Program Name) */
+
+SELECT *
+FROM ecorp;
+
+SELECT DISTINCT CustomerID FROM ecorp;
+
+
+SELECT CONCAT(CAST(SUM(KwhUsed) AS DECIMAL (10,2)),' kWh') AS Total_kWh_Used,
+	CONCAT(CAST(SUM(kwh_pre_program) AS DECIMAL (10,2)),' kWh') AS Total_Energy_Pre_Program, 
+	CONCAT(CAST(SUM(kwh_post_program) AS DECIMAL (10,2)),' kWh') AS Total_Energy_Post_Program
+FROM ecorp; 
+
+
+/* 2a. Average Energy Usage, Averge Pre and Post Program Energy Usage: The quantitive average energy usage from a subset of customers 
+before and after enrolling in the Energy Efficiency Program */
+
+SELECT *
+FROM ecorp;
+
+/* Remember, when SQL calculates the AVG it calculates the average over the count(*) rows. In this case, must calcuate the AVG using 
+the count of rows without 0 or null values.
+
+I had to use CASE to create two separate queries for MySQL ignore that my column contained zeros. */
+
+
+SELECT 
+    AVG(CASE 
+            WHEN kwh_pre_program IS NOT NULL AND kwh_pre_program <> 0 
+            THEN kwh_pre_program * 1.0 
+        END) AS Avg_Energy_Used_Pre_Program,
+
+    AVG(CASE 
+            WHEN kwh_post_program IS NOT NULL AND kwh_post_program <> 0 
+            THEN kwh_post_program * 1.0 
+        END) AS Avg_Energy_Used_Post_Program
+FROM ecorp;
+
+/* 3. Total Number of Participants: The total number of participants enrolled in the Energy Efficiency Program */
+
+SELECT COUNT(DISTINCT c.CustomerID) AS participant_count
+FROM customerinfo c
+JOIN programparticipation p ON c.CustomerID = p.CustomerID 
+
+
+/* 4. Total kWh Saved: The total number of Energy (kWh) Usage saved by all participants enrolled in the Energy Efficiency Program */
+
+SELECT CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Total_Energy_Saved
+FROM ecorp; 
+
+
+ /* Segmented Analysis */
+
+/* 1. Program Cost Per kWh Saved by Housing Type by customer:
+
+Objective: Analyze and measure the total energy saved and cost per kWh saved by each customer, 
+broken down by housing type.
+
+Additional KPI Metrics: Average Energy saved by housing type.*/ 
+
+SELECT *
+FROM ecorp;
+
+
+SELECT CustomerID,
+	HousingType, 
+	ProgramCost,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Total_Energy_Saved,
+CONCAT(CAST(CASE
+	WHEN(SUM(kwh_pre_program) - SUM(kwh_post_program)) > 0 
+    THEN ProgramCost / (SUM(Kwh_pre_program) - SUM(kwh_post_program))
+ELSE NULL
+END AS DECIMAL (10,2)), ' cents') AS Cost_Per_Kwh_Saved
+FROM ecorp
+GROUP BY CustomerID, ProgramCost, HousingType
+ORDER BY HousingType DESC; 
+
+
+SELECT HousingType,
+	CONCAT(CAST(AVG(kwh_pre_program) - AVG(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Avg_Energy_Saved
+FROM ecorp
+GROUP BY HousingType;
+
+
+-- total energy saved by Housing Type
+SELECT HousingType,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Avg_Energy_Saved
+FROM ecorp
+GROUP BY HousingType;
+
+
+
+/* 2. Total Energy Saving by Income Level by Customer:
+
+Objective: Identify the variation of different income levels in terms of energy usage savings.
+
+Additional KPI Metrics: Total Energy saved by Income Level per participant (or Participant Enrolled in the 
+Energy Efficient Program.  */
+
+SELECT CustomerID,
+    IncomeLevel,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Total_Energy_Saved,
+CONCAT(CAST(CASE
+	WHEN(SUM(kwh_pre_program) - SUM(kwh_post_program)) > 0 
+    THEN ProgramCost / (SUM(Kwh_pre_program) - SUM(kwh_post_program))
+ELSE NULL
+END AS DECIMAL (10,2)), ' cents') Cost_Per_kWh_Saved
+FROM ecorp 
+GROUP BY CustomerID,IncomeLevel,ProgramCost
+ORDER BY IncomeLevel DESC; 
+
+
+SELECT IncomeLevel,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Total_Energy_Saved
+FROM ecorp
+GROUP BY IncomeLevel;
+
+
+/* 3. Total Energy Saving by Zip Code by Customer:
+
+Objective:Identify levels of energy usage savings in terms of household ZIP CODE.
+
+Additional KPI Metrics: Total Energy saved by Zip Code */
+
+
+SELECT CustomerID,
+    ZipCode,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Energy_Saved
+FROM ecorp 
+GROUP BY CustomerID, ZipCode, ProgramCost
+ORDER BY CustomerID ASC; 
+
+
+SELECT ZipCode,
+	CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),'kwh') AS Total_Energy_Saved
+FROM ecorp
+GROUP BY ZipCode;
+
+
+
+
+/* 4. Total Energy Usage and Total Energy Saved by Income Level and Enrolled Program:
+
+Objective: Evaluate the total energy usage and the customers total energy saved based on the income of participants enrolled in the Energy Usage
+Program and the program the participants are enrolled in.
+
+Additional KPI Metrics: Assess cost effectiveness kWh used and kWh saved */
+
+Select *
+FROM ecorp; 
+
+-- Total Energy Usage: Income Level 
+
+SELECT 
+    IncomeLevel, 
+    CONCAT(CAST(SUM(KwhUsed) AS DECIMAL (10,2)),' kWh') AS Total_kWh_Used,
+    CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),' kWh') AS Total_Energy_Saved
+FROM 
+    ecorp
+GROUP BY 
+    IncomeLevel;
+
+-- Total Energy Usage: Program Name
+SELECT 
+    ProgramName, 
+    CONCAT(CAST(SUM(KwhUsed) AS DECIMAL (10,2)),' kWh') AS Total_kWh_Used,
+    CONCAT(CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)),' kWh') AS Total_Energy_Saved
+FROM 
+    ecorp
+GROUP BY 
+    ProgramName;
+
+
+
+/* 5. Percentage Participated and  Adoption Rate by Demographic (IncomeLevel):
+
+Objective: Analyze the rate in which people enrolled in the Energy Efficiency Program. */
+
+SELECT *
+FROM programparticipation;
+-- Percentage Particpated 
+SELECT 
+	COUNT(DISTINCT p.CustomerID) AS participants,
+    COUNT(DISTINCT c.CustomerID) AS total_customers,
+    ROUND(
+		COUNT(DISTINCT p.CustomerID) / COUNT(DISTINCT c.CustomerID) * 100,
+        2
+	) AS participation_rate_percent
+FROM customerinfo c
+LEFT JOIN programparticipation p
+	ON c.CustomerID = p.CustomerID; 
+    
+-- Adoption Rate by Demographic 
+ 
+ SELECT c.IncomeLevel,
+	COUNT(DISTINCT p.CustomerID) AS participants,
+    COUNT(DISTINCT c.CustomerID) AS total_customers,
+    ROUND(
+		COUNT(DISTINCT p.CustomerID) / COUNT(DISTINCT c.CustomerID) * 100,
+        2
+	) AS adoption_rate_percent
+FROM customerinfo c
+LEFT JOIN programparticipation p
+	ON c.CustomerID = p.CustomerID    
+GROUP BY c.IncomeLevel
+ORDER BY adoption_rate_percent DESC; 
+
+/* 6. Financial Efficiency of Programs by Household Type, ZipCode and Participants' Income Level:
+
+Objective: Analyze the cost of the Energy Efficiency program and average cost of the program per participants 
+by Household Type(or ZipCode and Income Level). */
+
+-- Total Program Cost
+select*
+from ecorp;
+
+
+SELECT 
+    HousingType,
+    CONCAT(CAST(AVG(ProgramCost) AS DECIMAL(10,2)), ' $') AS AvgProgramCost,
+    COUNT(DISTINCT CustomerID) AS NumberOfParticipants,
+	ROUND(
+        100.0 * COUNT(DISTINCT CASE WHEN EnrollmentDate > JoinDate THEN CustomerID END) / 
+        COUNT(DISTINCT CustomerID), 
+        2
+    ) AS PercentEnrolledAfterJoin
+FROM 
+    ecorp
+GROUP BY 
+    HousingType
+ORDER BY 
+    AvgProgramCost DESC;
+    
+-- Total percentage of participants enrolled in Energy Efficiency Program after becoming a Ecorp customer. 
+
+SELECT 
+    CONCAT(CAST(AVG(ProgramCost) AS DECIMAL(10,2)), ' $') AS AvgProgramCost,
+    COUNT(DISTINCT CustomerID) AS NumberOfCustomers,
+	ROUND(
+        100.0 * COUNT(DISTINCT CASE WHEN EnrollmentDate > JoinDate THEN CustomerID END) / 
+        COUNT(DISTINCT CustomerID), 
+        2
+    ) AS PercentEnrolledAfterJoin
+FROM 
+    ecorp
+
+
+SELECT * 
+from ecorp;
+
+
+SELECT 
+	ProgramName,
+    CONCAT(CAST(AVG(ProgramCost) AS DECIMAL(10,2)), ' $') AS AvgProgramCost,
+    COUNT(DISTINCT CASE WHEN EnrollmentDate > JoinDate THEN CustomerID END) AS ParticipantCount, 
+    COUNT(DISTINCT CustomerID) AS NumberOfCustomers,
+	ROUND(
+        100.0 * COUNT(DISTINCT CASE WHEN EnrollmentDate > JoinDate THEN CustomerID END) / 
+        COUNT(DISTINCT CustomerID), 
+        2
+    ) AS PercentEnrolledAfterJoin
+FROM 
+    ecorp
+GROUP BY 
+	ProgramName; 
+    
+
+    
+-- *********************************************************************--
+
+-- Cost Dffectiveness
+/* EXTRA. Cost effectiveness: 
+Objective: Analyze the benefit (energy saved, money saved) per unit of cost spent across each program; 
+Cost per Unit of Energy Saved, Cost vs. Customer Benefit. This analysis is significant to whether the Cost Efficient Programs 
+are reliable for continuation or fallible for elimination. */
+
+
+SELECT 
+    ProgramName,
+    CONCAT(CAST(SUM(ProgramCost)AS DECIMAL (10,2)), ' $') AS Total_Program_Cost,
+    CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)) AS Total_kWh_Saved,
+    CAST(
+		CASE 
+			WHEN (SUM(kwh_pre_program) - SUM(kwh_post_program)) > 0 
+			THEN SUM(ProgramCost) / (SUM(kwh_pre_program) - SUM(kwh_post_program))
+			ELSE NULL 
+		END AS DECIMAL (10,2)
+	) AS Cost_Per_kWh_Saved
+FROM ecorp
+GROUP BY ProgramName
+ORDER BY Cost_Per_kWh_Saved ASC;
+
+/* Across all 4 EEPs, INSULATION UPGRADE saved the most total kWh (44,639.90 kWh) while being the highest cost-effective program
+(saving per kWh, $2.72); while SMART THERMOSTAT was the 2nd, saving 12,276.46 kWh, specifically saving $6.14 per kWH . As for
+LIGHTNING RETROFIT, rendering a total of 7,398.66kWh saved at $16.10 per kWh, and HVAC TUNE saving the lowest (625.29 kWh) at $148.27 
+per kWh. However, to render a conclusive result, the goals of each EEPs must be specified. */
+
+SELECT 
+    HousingType,
+    CONCAT(CAST(SUM(ProgramCost)AS DECIMAL (10,2)), ' $') AS Total_Program_Cost,
+    CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)) AS Total_kWh_Saved,
+    CAST(
+		CASE 
+			WHEN (SUM(kwh_pre_program) - SUM(kwh_post_program)) > 0 
+			THEN SUM(ProgramCost) / (SUM(kwh_pre_program) - SUM(kwh_post_program))
+			ELSE NULL 
+		END AS DECIMAL (10,2)
+	) AS Cost_Per_kWh_Saved
+FROM ecorp
+GROUP BY HousingType
+ORDER BY Cost_Per_kWh_Saved ASC;
+
+/* Across all 4 EEPs, Multi-Family was the housing type that saved the most cost per kWh ($2.97) and the 2nd
+to save the most kWh (17,460 kWh) */
+
+SELECT * 
+from ecorp;
+
+SELECT 
+	IncomeLevel,
+    CONCAT(CAST(SUM(ProgramCost)AS DECIMAL (10,2)), ' $') AS Total_Program_Cost,
+    CAST(SUM(kwh_pre_program) - SUM(kwh_post_program) AS DECIMAL (10,2)) AS Total_kWh_Saved,
+    CAST(
+		CASE 
+			WHEN (SUM(kwh_pre_program) - SUM(kwh_post_program)) > 0 
+			THEN SUM(ProgramCost) / (SUM(kwh_pre_program) - SUM(kwh_post_program))
+			ELSE NULL 
+		END AS DECIMAL (10,2)
+	) AS Cost_Per_kWh_Saved
+FROM ecorp
+GROUP BY IncomeLevel
+ORDER BY Cost_Per_kWh_Saved ASC;
+
+/* In order to show the cost effectiveness of programs, the analysis must include the cost vs. customer benefit 
+and PayBack period. In both analysis, the cost per kHw must be given in order to draw complete and accurate conclusions. */
+
+-- *********************************************************************--
+
+
+/* 7. Weather Normalization:
+Objective: Analyze the temperature (Farenheit) range of the average energy usage by Energy Efficiency Programs. */
+
+select*
+from ecorp;
+
+SELECT 
+    ProgramName,
+    CASE 
+        WHEN TemperatureF < 40 THEN 'Cold (<40°F)'
+        WHEN TemperatureF BETWEEN 40 AND 70 THEN 'Mild (40–70°F)'
+        ELSE 'Hot (>70°F)'
+    END AS TemperatureCategory,
+    ROUND(AVG(KwhUsed), 2) AS AvgEnergyUsage
+FROM ecorp 
+GROUP BY 
+    ProgramName,
+    TemperatureCategory
+ORDER BY 
+    ProgramName, TemperatureCategory;
+
+
+
+    SELECT DISTINCT
+		ProgramName,
+        CASE 
+            WHEN TemperatureF < 40 THEN 'Cold (<40°F)'
+            WHEN TemperatureF BETWEEN 40 AND 70 THEN 'Mild (40–70°F)'
+            ELSE 'Hot (>70°F)'
+        END AS TempCategory,
+        AVG(KwhUsed) AS AverageUsage
+    FROM ecorp
+    WHERE ProgramName IS NOT NULL AND TemperatureF IS NOT NULL
+    GROUP BY CustomerID, ProgramName, 
+             CASE 
+                WHEN TemperatureF < 40 THEN 'Cold (<40°F)'
+                WHEN TemperatureF BETWEEN 40 AND 70 THEN 'Mild (40–70°F)'
+                ELSE 'Hot (>70°F)'
+		END
+ORDER BY TempCategory, AverageUsage DESC;
+
+
