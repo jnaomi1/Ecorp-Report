@@ -1,1 +1,9 @@
-Please read README.md for Ecorp Python Report. Thanks! 
+This project analyzes grocery store sales data using Python and Jupyter Notebook.  
+Key insights:
+- Sales peak on weekends
+- Loyalty customers spend 25% more
+- Seasonal spikes in produce sales
+
+👉 View the full analysis here: [notebook](notebooks/grocery_analysis.ipynb)
+
+![Sales Trend](images/sales_trend.png)
