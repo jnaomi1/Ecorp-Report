@@ -1,2 +1,24 @@
 # Ecorp-Report
-Evaluating the Impact of Energy Efficiency Programs on Residential Consumption: Creating a comprehensive analysis of E.Corps energy efficient program’s participation, energy usage, program performance and cost effective  indicators. Using KPIs and  Segmented requirements , the analysis will identify opportunities and key insights.
+
+The Project Goal: 
+Evaluating the Impact of Energy Efficiency Programs on Residential Consumption: 
+
+Creating a comprehensive analysis of E.Corps energy efficient program’s participation, energy usage, program performance and cost effective  indicators. Using KPIs and  Segmented requirements , the analysis will identify opportunities and key insights into: 
+
+Reducing Energy Consumption:
+Demonstrating a cost-effectiveness of program performance.
+Ensuring fair access across income levels and regions.
+Helping provide decisions of whether programs should be improved or eliminated.
+
+Tools Used: 
+MySQL
+PowerBI
+Python JupyterLab
+
+The main insights/findings:
+
+Are the EEP Reducing Energy Consumption? 
+KPI’s kWh Pre-Program and kWh Post-Program shows a slight greater amount of energy usage, particularly over 4/5, which concludes that EEP are NOT SIGNIFICANTLY reducing overall energy consumption. 
+
+Which EEPs should be improved or eliminated 
+Across each EEP, there was a slight (10%) decrease in kWh savings, concluding the EEPs had a low impact on e. Corp’s customers energy usage. Also, based on the insufficient data, the cost effectiveness of programs’ analysis should include the cost vs. customer benefit and PayBack period. In both analysis, the cost per kHw must be given in order to draw complete and accurate conclusions to whether EEP should be improved or eliminated. 
