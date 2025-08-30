@@ -33,4 +33,4 @@ MySQL
 
 
 Python
-<img width="1318" height="604" alt="Screenshot 2025-08-29 at 7 14 02 PM" src="https://github.com/user-attachments/assets/69d91b14-0981-458c-8b5c-e5281606fedf" />
+<img width="1141" height="894" alt="Screenshot 2025-08-29 at 7 15 25 PM" src="https://github.com/user-attachments/assets/48f84393-b0ad-41bf-be12-51dd623eff24" />
