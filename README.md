@@ -23,6 +23,8 @@ KPI’s kWh Pre-Program and kWh Post-Program shows a slight greater amount of en
 Which EEPs should be improved or eliminated? 
 Across each EEP, there was a slight (10%) decrease in kWh savings, concluding the EEPs had a low impact on e. Corp’s customers energy usage. Also, based on the insufficient data, the cost effectiveness of programs’ analysis should include the cost vs. customer benefit and PayBack period. In both analysis, the cost per kHw must be given in order to draw complete and accurate conclusions to whether EEP should be improved or eliminated. 
 
+Click here to see full report presentation > [https://ecorpsimulation.my.canva.site/ecorpprojectreportpresen](https://ecorpsimulation.my.canva.site/ecorpprojectreportpresentation-by-janitamce-)
+
 
 PowerBI
 <img width="1357" height="761" alt="Screenshot 2025-08-29 at 7 11 43 PM" src="https://github.com/user-attachments/assets/9dc390ef-4349-412f-bdf0-30f155607a8f" />
