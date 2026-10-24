@@ -58,3 +58,22 @@ The programs cost about **$6.29 per kWh saved**. To decide whether each program 
 
 **Python**
 <img width="1141" height="894" alt="Python notebook" src="https://github.com/user-attachments/assets/48f84393-b0ad-41bf-be12-51dd623eff24" />
+
+
+## AI Executive Report Generator
+
+**Business problem:** E.Corp leaders need a short, accurate summary of program performance. Writing one by hand after every analysis takes time, and AI-written summaries can get numbers wrong.
+
+**Approach:**
+1. Python (pandas) calculates the key metrics: adoption rate, energy use before and after enrollment, cost per kWh saved, results by temperature and income level.
+2. A local AI model (Llama 3.2 through Ollama) writes an executive summary using only those metrics.
+3. An automatic accuracy check compares every number in the AI's summary with the real data and flags anything it can't verify.
+4. The report is saved to the `reports` folder, ready to share.
+
+**Impact:** Generates an executive-ready report in about 17 seconds, replacing a manual write-up, and catches AI errors before leadership sees them.
+
+**Tools:** Python, pandas, Ollama, Llama 3.2, Jupyter
+
+**Files:**
+- `PythonJupLab/Notebooks/AI_Executive_Report.ipynb`: the notebook
+- `PythonJupLab/Notebooks/reports/`: example generated report
